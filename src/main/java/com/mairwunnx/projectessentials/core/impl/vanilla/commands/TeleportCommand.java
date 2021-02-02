@@ -26,12 +26,15 @@ import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.server.ServerWorld;
 import net.minecraft.world.server.TicketType;
 import org.jetbrains.annotations.NotNull;
+import net.minecraftforge.common.util.ITeleporter;
+import net.minecraft.world.dimension.DimensionType;
 
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.function.Function;
 
 public class TeleportCommand extends VanillaCommandBase {
     public TeleportCommand() {
@@ -116,6 +119,18 @@ public class TeleportCommand extends VanillaCommandBase {
         return targets.size();
     }
 
+    public static void changeDimension(Entity entityIn, ServerWorld worldIn) {
+        ((ServerPlayerEntity) entityIn).changeDimension(worldIn.getDimension().getType() , new ITeleporter()
+        {
+            @Override
+            public Entity placeEntity(Entity entity, ServerWorld currentWorld, ServerWorld destWorld, float yaw, Function<Boolean, Entity> repositionEntity)
+            {
+                Entity repositionedEntity = repositionEntity.apply(false);
+                return repositionedEntity;
+            }
+        });    
+    }
+
     public static void teleport(CommandSource source, Entity entityIn, ServerWorld worldIn, double x, double y, double z, Set<SPlayerPositionLookPacket.Flags> relativeList, float yaw, float pitch, @Nullable Facing facing) {
         if (entityIn instanceof ServerPlayerEntity) {
             ChunkPos chunkpos = new ChunkPos(new BlockPos(x, y, z));
@@ -125,12 +140,10 @@ public class TeleportCommand extends VanillaCommandBase {
                 ((ServerPlayerEntity) entityIn).stopSleepInBed(true, true);
             }
 
-            if (worldIn == entityIn.world) {
-                ((ServerPlayerEntity) entityIn).connection.setPlayerLocation(x, y, z, yaw, pitch, relativeList);
-            } else {
-                ((ServerPlayerEntity) entityIn).teleport(worldIn, x, y, z, yaw, pitch);
+            if (worldIn != entityIn.world) {
+                changeDimension(entityIn, worldIn);
             }
-
+            ((ServerPlayerEntity) entityIn).connection.setPlayerLocation(x, y, z, yaw, pitch, relativeList);
             entityIn.setRotationYawHead(yaw);
         } else {
             float f1 = MathHelper.wrapDegrees(yaw);
